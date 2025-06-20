@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <section
+            class="py-16 text-center bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-700 dark:to-purple-800 text-white rounded-lg shadow-lg mb-10">
+        <div class="px-4 mx-auto max-w-screen-xl">
+            <h1 class="mb-4 text-4xl font-extrabold tracking-tight leading-none md:text-5xl lg:text-6xl text-white">
+                Welcome to Cattle Management System
+            </h1>
+            <p class="mb-8 text-lg font-light lg:text-xl sm:px-16 lg:px-48 text-blue-100 dark:text-blue-200">
+                Oversee, track, and explore insights regarding your livestock.
+            </p>
+        </div>
+    </section>
+
+
+    <section class="pt-2 mb-6">
+        <div class="pb-8 flex flex-col">
+            <h2 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                ESP32 Live Records
+            </h2>
+            <p class="text-lg font-normal text-gray-600 dark:text-gray-400">
+                See your ESP32 weight recordings update in real-time.
+            </p>
+        </div>
+    </section>
+
+    <div class="relative overflow-x-auto shadow-xl sm:rounded-lg bg-gray-800 dark:bg-gray-900 mb-10 border border-gray-700">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-300 dark:text-gray-200">
+            <thead class="text-xs text-gray-400 uppercase bg-gray-700 dark:bg-gray-900 border-b border-gray-600 dark:border-gray-800">
+            <tr>
+                <th scope="col" class="px-6 py-3">
+                    Cow RFID Tag
+                </th>
+                <th scope="col" class="px-6 py-3">
+                    Cow Breed
+                </th>
+                <th scope="col" class="px-6 py-3">
+                    Gender
+                </th>
+                <th scope="col" class="px-6 py-3">
+                    Recorded At
+                </th>
+                <th scope="col" class="px-6 py-3">
+                    Weight (Kg)
+                </th>
+            </tr>
+            </thead>
+            <tbody>
+
+            {% if records %}
+
+                {% for record in records %}
+                    <tr class="bg-gray-800 border-b border-gray-700 hover:bg-gray-700 dark:hover:bg-gray-700 transition duration-150 ease-in-out">
+                        <th scope="row"
+                            class="px-6 py-4 font-medium text-white whitespace-nowrap">
+                             <a href="{% url 'web:cow_detail' rfid=record.cow.rfid %}" class="text-blue-400 hover:underline">
+                                {{ record.cow.rfid }}
+                            </a>
+                        </th>
+                        <td class="px-6 py-4">
+                            {{ record.cow.breed }}
+                        </td>
+                        <td class="px-6 py-4">
+                            {{ record.cow.get_breed_display }}
+                        </td>
+                        <td class="px-6 py-4">
+                            {{ record.created_at|date:'H:i d/m/Y' }}
+                        </td>
+                        <td class="px-6 py-4 font-bold text-blue-400">
+                            {{ record.weight }}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <th scope="row" colspan="5"
+                            class="text-center px-6 py-4 font-medium text-gray-400 whitespace-nowrap bg-gray-800">
+                            You have no records yet!!
+                        </th>
+                    </tr>
+                {% endfor %}
+
+            {% endif %}
+
+            </tbody>
+        </table>
+    </div>
+
+    <div id="toast"
+         class="hidden z-[100] fixed flex items-center w-full max-w-xs p-4 space-x-4 text-gray-500 bg-white divide-x rtl:divide-x-reverse divide-gray-200 rounded-lg shadow-lg right-5 bottom-5 dark:text-gray-200 dark:divide-gray-700 dark:bg-gray-800"
+         role="alert">
+        <div class="text-base font-normal">
+        </div>
+    </div>
+
+{% endblock %}
+
+
+{% block js %}
+    <script type="text/javascript">
+        $(function () {
+            let isSending = false;
+            const toastElement = $('#toast');
+
+            function showToast(message) {
+                toastElement.find('.font-normal').text(message);
+                toastElement.removeClass('hidden').addClass('flex');
+                setTimeout(() => {
+                    toastElement.removeClass('flex').addClass('hidden');
+                }, 3000);
+            }
+
+            function fetchRecentData() {
+                if (isSending) return;
+                isSending = true;
+
+                $.ajax({
+                    type: 'get',
+                    url: '/api/recent-data/',
+                    success: function (data) {
+                        console.log(data);
+                        isSending = false;
+
+                        if (data.message) {
+                            showToast(data.message);
+                        }
+
+                        if (data.data && Array.isArray(data.data)) {
+                            const tableBody = $('tbody');
+                            tableBody.empty(); // Clear existing rows
+
+                            if (data.data.length > 0) {
+                                data.data.forEach(record => {
+                                    const row = `
+                                            <tr class="border-b border-gray-200 dark:border-gray-700">
+                                                <th scope="row"
+                                                    class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap bg-gray-50 dark:text-white dark:bg-gray-800">
+                                                    <a href="/cows/${record.cow.rfid}/" class="text-blue-400 hover:underline">
+                                                        ${record.cow.rfid}
+                                                    </a>
+                                                </th>
+                                                <td class="px-6 py-4">
+                                                    ${record.cow.breed}
+                                                </td>
+                                                <td class="px-6 py-4 bg-gray-50 dark:bg-gray-800">
+                                                    ${record.cow.breed_display}
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    ${new Date(record.created_at).toLocaleString()}
+                                                </td>
+                                                <td class="px-6 py-4 bg-gray-50 dark:bg-gray-800">
+                                                    ${record.weight}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    tableBody.append(row);
+                                });
+                            } else {
+                                tableBody.append(`
+                                        <tr>
+                                            <th scope="row" colspan="5"
+                                                class="text-center px-6 py-4 font-medium text-gray-900 whitespace-nowrap bg-gray-50 dark:text-white dark:bg-gray-800">
+                                                No recent records found.
+                                            </th>
+                                        </tr>
+                                    `);
+                            }
+                        }
+                    },
+                    error: function (error) {
+                        console.error("Error fetching data:", error);
+                        isSending = false;
+                        showToast("Error fetching recent data.");
+                    }
+                });
+            }
+
+            // Fetch data every 10 seconds
+            setInterval(fetchRecentData, 10000);
+
+            // Initial fetch when the page loads
+            // fetchRecentData(); // We will load initial data with the Django template
+        });
+    </script>
+{% endblock %}
